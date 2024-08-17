@@ -1,0 +1,102 @@
+apiVersion: argoproj.io/v1alpha1
+kind: EventBus
+metadata:
+  name: default
+  namespace: argo
+spec:
+  nats:
+    native:
+      # Optional, defaults to 3. If it is < 3, set it to 3, that is the minimal requirement.
+      replicas: 3
+      # Optional, authen strategy, "none" or "token", defaults to "none"
+      auth: none
+#      containerTemplate:
+#        resources:
+#          requests:
+#            cpu: "10m"
+#      metricsContainerTemplate:
+#        resources:
+#          requests:
+#            cpu: "10m"
+#      antiAffinity: false
+#      persistence:
+#        storageClassName: standard
+#        accessMode: ReadWriteOnce
+#        volumeSize: 10Gi
+---
+apiVersion: argoproj.io/v1alpha1
+kind: EventSource
+metadata:
+  name: webhook
+  namespace: argo
+spec:
+  service:
+    ports:
+      - port: 12000
+        targetPort: 12000
+  webhook:
+    # event-source can run multiple HTTP servers. Simply define a unique port to start a new HTTP server
+    example:
+      # port to run HTTP server on
+      port: "12000"
+      # endpoint to listen to
+      endpoint: /example
+      # HTTP request method to allow. In this case, only POST requests are accepted
+      method: POST
+
+#    example-foo:
+#      port: "12000"
+#      endpoint: /example2
+#      method: POST
+
+# Uncomment to use secure webhook
+#    example-secure:
+#      port: "13000"
+#      endpoint: "/secure"
+#      method: "POST"
+#      # k8s secret that contains the cert
+#      serverCertSecret:
+#        name: my-secret
+#        key: cert-key
+#      # k8s secret that contains the private key
+#      serverKeySecret:
+#        name: my-secret
+#        key: pk-key
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: operate-workflow-sa
+  namespace: argo
+---
+# Similarly you can use a ClusterRole and ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: operate-workflow-role
+  namespace: argo
+rules:
+  - apiGroups:
+      - argoproj.io
+    verbs:
+      - "*"
+    resources:
+      - workflows
+      - workflowtemplates
+      - cronworkflows
+      - clusterworkflowtemplates
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: operate-workflow-role-binding
+  namespace: argo
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: operate-workflow-role
+subjects:
+  - kind: ServiceAccount
+    name: operate-workflow-sa
+
+

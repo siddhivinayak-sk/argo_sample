@@ -1,0 +1,86 @@
+Argo Events: https://argoproj.github.io/argo-events/quick_start/
+
+
+https://argoproj.github.io/argo-workflows/access-token/
+
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: my-wf-tmple
+  namespace: argo
+spec:
+  templates:
+    - name: main
+      inputs:
+        parameters:
+          - name: message
+            value: "{{workflow.parameters.message}}"
+      container:
+        image: docker/whalesay:latest
+        command: [cowsay]
+        args: ["{{inputs.parameters.message}}"]
+  entrypoint: main
+
+
+
+
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowEventBinding
+metadata:
+  name: event-consumer
+spec:
+  event:
+    # metadata header name must be lowercase to match in selector
+    selector: payload.message != "" && metadata["x-argo-e2e"] == ["true"] && discriminator == "my-discriminator"
+  submit:
+    workflowTemplateRef:
+      name: my-wf-tmple
+    arguments:
+      parameters:
+      - name: message
+        valueFrom:
+          event: payload.message
+
+
+
+kubectl apply -f event-template.yml   
+
+kubectl -n argo create secret generic argo-workflows-webhook-clients
+
+
+
+
+curl $ARGO_SERVER/api/v1/events/argo/my-discriminator \
+    -H "Authorization: $ARGO_TOKEN" \
+    -H "X-Argo-E2E: true" \
+    -d '{"message": "hello events"}'
+
+
+
+
+
+
+
+Auth Token:
+kubectl create role jenkins --verb=list,update --resource=workflows.argoproj.io 
+kubectl create sa jenkins
+kubectl create rolebinding jenkins --role=jenkins --serviceaccount=argo:jenkins
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: jenkins.service-account-token
+  annotations:
+    kubernetes.io/service-account.name: jenkins
+type: kubernetes.io/service-account-token
+
+
+kubectl get secret jenkins.service-account-token -o=jsonpath='{.data.token}'
+
+
+
+
+kubectl apply -n argo -f https://raw.githubusercontent.com/argoproj/argo-events/stable/examples/eventbus/native.yaml
+
+
+

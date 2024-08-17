@@ -1,0 +1,64 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Sensor
+metadata:
+  creationTimestamp: "2022-11-21T05:44:38Z"
+  deletionGracePeriodSeconds: 0
+  deletionTimestamp: "2022-11-21T06:06:35Z"
+  generation: 2
+  name: webhook
+  namespace: argo
+  resourceVersion: "858216"
+  uid: c16a421d-4593-4d2a-9432-ded83ed9029f
+spec:
+  dependencies:
+  - eventName: example
+    eventSourceName: webhook
+    name: test-dep
+  template:
+    serviceAccountName: operate-workflow-sa
+  triggers:
+  - template:
+      k8s:
+        operation: create
+        parameters:
+        - dest: spec.arguments.parameters.0.value{}
+          src:
+            dataKey: body
+            dependencyName: test-dep
+        source:
+          resource:
+            apiVersion: argoproj.io/v1alpha1
+            kind: Workflow
+            metadata:
+              generateName: webhook-workflow-
+            spec:
+              arguments:
+                parameters:
+                - name: message
+                  value: hello world
+              entrypoint: whalesay
+              templates:
+              - container:
+                  args:
+                  - '{{inputs.parameters.message}}'
+                  command:
+                  - cowsay
+                  image: docker/whalesay:latest
+                inputs:
+                  parameters:
+                  - name: message
+                name: whalesay
+      name: webhook-workflow-trigger
+status:
+  conditions:
+  - lastTransitionTime: "2022-11-21T06:02:45Z"
+    status: Unknown
+    type: DependenciesProvided
+  - lastTransitionTime: "2022-11-21T06:05:29Z"
+    message: EventBus not found.
+    reason: EventBusNotFound
+    status: "False"
+    type: Deployed
+  - lastTransitionTime: "2022-11-21T06:02:45Z"
+    status: Unknown
+    type: TriggersProvided
